@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Practice</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-GLhlTQ8iRABdZLl6O3oVMWSktQOp6b7In1Zl3/Jr59b6EGGoI1aFkw7cmDA6j6gD" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+        <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.25/css/jquery.dataTables.css">
+    </head>
+    <body>
+        {% macro get_compound_colour(compound) -%}
+        {% if compound == 'SOFT' %}#f8d7da{% elif compound == 'MEDIUM' %}#fff3cd{% elif compound == 'INTERMEDIATE' %}#d1e7dd{% elif compound == 'WET' %}#cfe2ff{% else %}#e2e3e5{% endif %} 
+        {%- endmacro %}
+        {% if data.upcoming_gp.weather %}
+            <a class="weatherwidget-io" href="https://forecast7.com/en{{data.upcoming_gp.weather}}" data-label_1="{{data.upcoming_gp.city}}" data-label_2="Upcoming Grand Prix" data-theme="original"></a>
+        {% endif %}
+        <div class="container-fluid">
+            <nav class="navbar">
+                <div class="container-fluid">
+                    <a href="/" class="navbar-brand">
+                        <img src="/images/logo.avif" width="175" height="125">
+                    </a>
+                    <div class="hstack gap-3 d-flex">
+                        <a class="btn btn-lg btn-outline-dark" type="button" href="https://www.formula1.com/en/results.html/{{data.years[0]}}/drivers.html">
+                            Drivers Standings
+                        </a>
+                        <a class="btn btn-lg btn-outline-dark" type="button" href="https://www.formula1.com/en/results.html/{{data.years[0]}}/team.html">
+                            Constructors Standings
+                        </a>
+                        <div class="btn-group">
+                            <button class="btn btn-lg btn-outline-dark dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                              {{data.current_gp}}
+                            </button>
+                            <ul class="dropdown-menu">
+                                {% for gp in data.gps %}
+                                    <li><a class="dropdown-item" href="/gps/{{gp.name}}/practice">{{gp.name}}</a></li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-lg btn-outline-dark dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                              Practice
+                            </button>
+                            <ul class="dropdown-menu">
+                                {% for session in data.sessions %}
+                                    <li><a class="dropdown-item" href="/gps/{{data.current_gp}}/{{session.lower()}}">{{session}}</a></li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+            <div class="container-fluid">
+                <p>
+                    This table shows average times set by each driver for each compound, as you can see you can compare the current year's data to 
+                    previous year(s) data. The table only includes data for year(s) that are considered a part of the same era. The average lap time only
+                    include laps that are within a 7s delta of the best lap for a given driver and compound.
+                <div class="vstack gap-3">
+                    <div>
+                        <table class="datatable">
+                            <thead>
+                                <tr>
+                                    <th colspan=5>{{data.years[0]}}</th>
+                                    {% for year in data.years[1:] %}
+                                        <th colspan=3>{{year}}</th>
+                                    {% endfor %}
+                                </tr>
+                                <tr>
+                                    <th data-sortable="true">Driver</th>
+                                    <th data-sortable="true">Compound</th>
+                                    {% for _ in data.years %}
+                                        <th data-sortable="true">Fastest Lap Time</th>
+                                        <th data-sortable="true">Avg. Lap Time</th>
+                                        <th data-sortable="true"># Laps</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for year in data.years %}
+                                    {% set year_loop = loop %}
+                                    {% for driver in data.lap_data_by_driver_by_compound[year] %}
+                                        {% for compound in data.lap_data_by_driver_by_compound[year][driver] %}
+                                            {% set compound_colour = get_compound_colour(compound) %}
+                                            {% if year_loop.index == 1 %}
+                                                <tr style="background-color: {{compound_colour}};">
+                                                    <td><a href="/gps/{{data.current_gp}}/drivers/{{data.lap_data_by_driver_by_compound[year][driver][compound].driver}}/{{data.years[0]}}/practice/compare/{{data.lap_data_by_driver_by_compound[data.years[0]][driver][compound].driver}}/{{data.years[1]}}/practice">{{data.lap_data_by_driver_by_compound[year][driver][compound].driver}}</a></td>
+                                                    {% if compound.lower() == 'soft' %}
+                                                        <td data-order="{{compound}}"><img src="/images/soft.png" width="36" height="36"></td>
+                                                    {% elif compound.lower() == 'medium' %}
+                                                        <td data-order="{{compound}}"><img src="/images/medium.png" width="36" height="36"></td>
+                                                    {% elif compound.lower() == 'intermediate' %}
+                                                        <td data-order="{{compound}}"><img src="/images/wet.png" width="36" height="36"></td>
+                                                    {% elif compound.lower() == 'wet' %}
+                                                        <td data-order="{{compound}}"><img src="/images/wet.png" width="36" height="36"></td>
+                                                    {% else %}
+                                                        <td data-order="{{compound}}"><img src="/images/hard.png" width="36" height="36"></td>
+                                                    {% endif %}
+                                                    <td>{{data.lap_data_by_driver_by_compound[year][driver][compound].fastest_lap_time}}</td>
+                                                    <td>{{data.lap_data_by_driver_by_compound[year][driver][compound].avg_lap_time}}</td>
+                                                    <td>{{data.lap_data_by_driver_by_compound[year][driver][compound].num_laps}}</td>
+                                                    {% for year in data.years[1:] %}
+                                                        {% if year in data.lap_data_by_driver_by_compound and driver in data.lap_data_by_driver_by_compound[year] and compound in data.lap_data_by_driver_by_compound[year][driver] %}
+                                                            <td>{{data.lap_data_by_driver_by_compound[year][driver][compound].fastest_lap_time}}</td>
+                                                            <td>{{data.lap_data_by_driver_by_compound[year][driver][compound].avg_lap_time}}</td>
+                                                            <td>{{data.lap_data_by_driver_by_compound[year][driver][compound].num_laps}}</td>
+                                                        {% else %}
+                                                            <td>N/A</td>
+                                                            <td>N/A</td>
+                                                            <td>0</td>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </tr>
+                                            {% elif (driver not in data.lap_data_by_driver_by_compound[data.years[year_loop.index - 2]]) or (compound not in data.lap_data_by_driver_by_compound[data.years[year_loop.index - 2]][driver]) %}
+                                                <tr style="background-color: {{compound_colour}};">
+                                                    <td><a href="/gps/{{data.current_gp}}/drivers/{{data.lap_data_by_driver_by_compound[year][driver][compound].driver}}/{{data.years[0]}}/practice/compare/{{data.lap_data_by_driver_by_compound[year][driver][compound].driver}}/{{data.years[1]}}/practice">{{data.lap_data_by_driver_by_compound[year][driver][compound].driver}}</a></td>
+                                                    {% if compound.lower() == 'soft' %}
+                                                        <td data-order="{{compound}}"><img src="/images/soft.png" width="36" height="36"></td>
+                                                    {% elif compound.lower() == 'medium' %}
+                                                        <td data-order="{{compound}}"><img src="/images/medium.png" width="36" height="36"></td>
+                                                    {% elif compound.lower() == 'intermediate' %}
+                                                        <td data-order="{{compound}}"><img src="/images/wet.png" width="36" height="36"></td>
+                                                    {% elif compound.lower() == 'wet' %}
+                                                        <td data-order="{{compound}}"><img src="/images/wet.png" width="36" height="36"></td>
+                                                    {% else %}
+                                                        <td data-order="{{compound}}"><img src="/images/hard.png" width="36" height="36"></td>
+                                                    {% endif %}
+                                                    {% for _ in range(0, year_loop.index - 1) %}
+                                                        <td>N/A</td>
+                                                        <td>N/A</td>
+                                                        <td>0</td>
+                                                    {% endfor %}
+                                                    <td>{{data.lap_data_by_driver_by_compound[year][driver][compound].fastest_lap_time}}</td>
+                                                    <td>{{data.lap_data_by_driver_by_compound[year][driver][compound].avg_lap_time}}</td>
+                                                    <td>{{data.lap_data_by_driver_by_compound[year][driver][compound].num_laps}}</td>
+                                                    {% if year_loop.index < data.years|length %}
+                                                        {% for inner_year in data.years[year_loop.index:] %}
+                                                            {% if inner_year in data.lap_data_by_driver_by_compound and driver in data.lap_data_by_driver_by_compound[inner_year] and compound in data.lap_data_by_driver_by_compound[inner_year][driver] %}
+                                                                <td>{{data.lap_data_by_driver_by_compound[inner_year][driver][compound].fastest_lap_time}}</td>
+                                                                <td>{{data.lap_data_by_driver_by_compound[inner_year][driver][compound].avg_lap_time}}</td>
+                                                                <td>{{data.lap_data_by_driver_by_compound[inner_year][driver][compound].num_laps}}</td>
+                                                            {% else %}
+                                                                <td>N/A</td>
+                                                                <td>N/A</td>
+                                                                <td>0</td>
+                                                            {% endif %}
+                                                        {% endfor %}
+                                                    {% endif %}
+                                                </tr>
+                                            {% else %}
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% endfor %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js" integrity="sha384-w76AqPfDkMBDXo30jS1Sgez6pr3x5MlQ1ZAGC+nuZB+EYdgRZgiwxhTBTkF7CXvN" crossorigin="anonymous"></script>
+        <script>
+            $(document).ready(function () {
+                $('.datatable').DataTable({
+                    paging: false,
+                });
+            });
+        </script>
+        <script>
+            !function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src='https://weatherwidget.io/js/widget.min.js';fjs.parentNode.insertBefore(js,fjs);}}(document,'script','weatherwidget-io-js');
+        </script>
+    </body>
+</html>

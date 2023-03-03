@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Results</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-GLhlTQ8iRABdZLl6O3oVMWSktQOp6b7In1Zl3/Jr59b6EGGoI1aFkw7cmDA6j6gD" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+        <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.25/css/jquery.dataTables.css">
+    </head>
+    <body>
+        {% macro get_compound_colour(compound) -%}
+        {% if compound == 'SOFT' %}#f8d7da{% elif compound == 'MEDIUM' %}#fff3cd{% elif compound == 'INTERMEDIATE' %}#d1e7dd{% elif compound == 'WET' %}#cfe2ff{% else %}#e2e3e5{% endif %} 
+        {%- endmacro %}
+        {% if data.upcoming_gp.weather %}
+            <a class="weatherwidget-io" href="https://forecast7.com/en{{data.upcoming_gp.weather}}" data-label_1="{{data.upcoming_gp.city}}" data-label_2="Upcoming Grand Prix" data-theme="original"></a>
+        {% endif %}
+        <div class="container-fluid">
+            <nav class="navbar">
+                <div class="container-fluid">
+                    <a href="/" class="navbar-brand">
+                        <img src="/images/logo.avif" width="175" height="125">
+                    </a>
+                    <div class="hstack gap-3 d-flex">
+                        <a class="btn btn-lg btn-outline-dark" type="button" href="https://www.formula1.com/en/results.html/{{data.years[0]}}/drivers.html">
+                            Drivers Standings
+                        </a>
+                        <a class="btn btn-lg btn-outline-dark" type="button" href="https://www.formula1.com/en/results.html/{{data.years[0]}}/team.html">
+                            Constructors Standings
+                        </a>
+                        <div class="btn-group">
+                            <button class="btn btn-lg btn-outline-dark dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                              {{data.current_gp}}
+                            </button>
+                            <ul class="dropdown-menu">
+                                {% for gp in data.gps %}
+                                    <li><a class="dropdown-item" href="/gps/{{gp.name}}/results">{{gp.name}}</a></li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-lg btn-outline-dark dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                              Results
+                            </button>
+                            <ul class="dropdown-menu">
+                                {% for session in data.sessions %}
+                                    <li><a class="dropdown-item" href="/gps/{{data.current_gp}}/{{session.lower()}}">{{session}}</a></li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+            <div class="container-fluid">
+                <div class="row mb-4">
+                    {% for year in data.years %}
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header">
+                                    Winning Strategy ({{year}})
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        {% if data.tyre_strategy_data[year] %}
+                                            <div class="text-center">
+                                                {% for compound in data.tyre_strategy_data[year].winning_strategy %}
+                                                    {% if compound.lower() == 's' %}
+                                                        <img src="/images/soft.png" width="46" height="46">
+                                                    {% elif compound.lower() == 'm' %}
+                                                        <img src="/images/medium.png" width="46" height="46">
+                                                    {% elif compound.lower() == 'h' %}
+                                                        <img src="/images/hard.png" width="46" height="46">
+                                                    {% elif compound.lower() == 'i' %}
+                                                        <img src="/images/intermediate.png" width="46" height="46">
+                                                    {% elif compound.lower() == 'w' %}
+                                                        <img src="/images/wet.png" width="46" height="46">
+                                                    {% else %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </div>
+                                        {% else %}
+                                            <h2 class="card-title text-center">N/A</h2>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                <div class="row mb-4">
+                    {% for year in data.years %}
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header">
+                                    Popular Strategy ({{year}})
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        {% if data.tyre_strategy_data[year] %}
+                                            <div class="text-center">
+                                                {% for compound in data.tyre_strategy_data[year].popular_strategy %}
+                                                    {% if compound.lower() == 's' %}
+                                                        <img src="/images/soft.png" width="46" height="46">
+                                                    {% elif compound.lower() == 'm' %}
+                                                        <img src="/images/medium.png" width="46" height="46">
+                                                    {% elif compound.lower() == 'h' %}
+                                                        <img src="/images/hard.png" width="46" height="46">
+                                                    {% elif compound.lower() == 'i' %}
+                                                        <img src="/images/intermediate.png" width="46" height="46">
+                                                    {% elif compound.lower() == 'w' %}
+                                                        <img src="/images/wet.png" width="46" height="46">
+                                                    {% else %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </div>
+                                        {% else %}
+                                            <h2 class="card-title text-center">N/A</h2>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                <table class="datatable">
+                    <thead>
+                        <tr>
+                            <th colspan=5>{{data.years[0]}}</th>
+                            {% for year in data.years[1:] %}
+                                <th colspan=4>{{year}}</th>
+                            {% endfor %}
+                        </tr>
+                        <tr>
+                            <th data-sortable="true">Driver</th>
+                            {% for _ in data.years %}
+                                <th data-sortable="true">Qualifying</th>
+                                <th data-sortable="true">Start</th>
+                                <th data-sortable="true">Finish</th>
+                                <th data-sortable="false">Status</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for year in data.years %}
+                            {% set year_loop = loop %}
+                            {% for driver in data.session_result_data[year] %}
+                                {% if year_loop.index == 1 %}
+                                    <tr>
+                                        <td><a href="/gps/{{data.current_gp}}/drivers/{{data.session_result_data[year][driver]}}/{{data.years[0]}}/race/compare/{{data.session_result_data[year][driver]}}/{{data.years[1]}}/race">{{data.session_result_data[year][driver].driver_full_name}}</a></td>
+                                        <td>{{data.session_result_data[year][driver].qualifying}}</td>
+                                        <td data-order="{{data.session_result_data[year][driver].start}}">{{data.session_result_data[year][driver].ordinal_start}}</td>
+                                        {% if data.session_result_data[year][driver].finish == 1 %}
+                                            <td data-order="{{data.session_result_data[year][driver].finish}}" style="background-color:#ffdc73;">{{data.session_result_data[year][driver].ordinal_finish}}</td>
+                                        {% elif data.session_result_data[year][driver].finish == 2 %}
+                                            <td data-order="{{data.session_result_data[year][driver].finish}}" style="background-color:#d8d8d8;">{{data.session_result_data[year][driver].ordinal_finish}}</td>
+                                        {% elif data.session_result_data[year][driver].finish == 3 %}
+                                            <td data-order="{{data.session_result_data[year][driver].finish}}" style="background-color:#cd7f32;">{{data.session_result_data[year][driver].ordinal_finish}}</td>
+                                        {% else %}
+                                            <td data-order="{{data.session_result_data[year][driver].finish}}">{{data.session_result_data[year][driver].ordinal_finish}}</td>
+                                        {% endif %}
+                                        <td data-sortable="false">{{data.session_result_data[year][driver].status}}</td>
+                                        {% for inner_year in data.years[1:] %}
+                                            {% if inner_year in data.session_result_data and driver in data.session_result_data[inner_year] %}
+                                                <td>{{data.session_result_data[inner_year][driver].qualifying}}</td>
+                                                <td data-order="{{data.session_result_data[inner_year][driver].start}}">{{data.session_result_data[inner_year][driver].ordinal_start}}</td>
+                                                {% if data.session_result_data[inner_year][driver].finish == 1 %}
+                                                    <td data-order="{{data.session_result_data[year][driver].finish}}" style="background-color:#ffdc73;">{{data.session_result_data[inner_year][driver].ordinal_finish}}</td>
+                                                {% elif data.session_result_data[inner_year][driver].finish == 2 %}
+                                                    <td data-order="{{data.session_result_data[inner_year][driver].finish}}" style="background-color:#d8d8d8;">{{data.session_result_data[inner_year][driver].ordinal_finish}}</td>
+                                                {% elif data.session_result_data[inner_year][driver].finish == 3 %}
+                                                    <td data-order="{{data.session_result_data[inner_year][driver].finish}}" style="background-color:#cd7f32;">{{data.session_result_data[inner_year][driver].ordinal_finish}}</td>
+                                                {% else %}
+                                                    <td data-order="{{data.session_result_data[inner_year][driver].finish}}">{{data.session_result_data[inner_year][driver].ordinal_finish}}</td>
+                                                {% endif %}
+                                                <td data-sortable="false">{{data.session_result_data[inner_year][driver].status}}</td>
+                                            {% else %}
+                                                <td data-order="25">N/A</td>
+                                                <td data-order="25">N/A</td>
+                                                <td data-order="25">N/A</td>
+                                                <td>N/A</td>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </tr>
+                                {% elif (driver not in data.session_result_data[data.years[year_loop.index - 2]]) %}
+                                    <tr>
+                                        <td><a href="/gps/{{data.current_gp}}/drivers/{{data.session_result_data[year][driver].driver}}/{{data.years[0]}}/race/compare/{{data.session_result_data[year][driver].driver}}/{{data.years[1]}}/race">{{data.session_result_data[year][driver].driver_full_name}}</a></td>
+                                        {% for _ in range(0, year_loop.index - 1) %}
+                                            <td data-order="25">N/A</td>
+                                            <td data-order="25">N/A</td>
+                                            <td data-order="25">N/A</td>
+                                            <td>N/A</td>
+                                        {% endfor %}
+                                        <td>{{data.session_result_data[year][driver].qualifying}}</td>
+                                        <td data-order="{{data.session_result_data[year][driver].start}}">{{data.session_result_data[year][driver].ordinal_start}}</td>
+                                        {% if data.session_result_data[year][driver].finish == 1 %}
+                                            <td data-order="{{data.session_result_data[year][driver].finish}}" style="background-color:#ffdc73;">{{data.session_result_data[year][driver].ordinal_finish}}</td>
+                                        {% elif data.session_result_data[year][driver].finish == 2 %}
+                                            <td data-order="{{data.session_result_data[year][driver].finish}}" style="background-color:#d8d8d8;">{{data.session_result_data[year][driver].ordinal_finish}}</td>
+                                        {% elif data.session_result_data[year][driver].finish == 3 %}
+                                            <td data-order="{{data.session_result_data[year][driver].finish}}" style="background-color:#cd7f32;">{{data.session_result_data[year][driver].ordinal_finish}}</td>
+                                        {% else %}
+                                            <td data-order="{{data.session_result_data[year][driver].finish}}">{{data.session_result_data[year][driver].ordinal_finish}}</td>
+                                        {% endif %}
+                                        <td data-sortable="false">{{data.session_result_data[year][driver].status}}</td>
+                                        {% if year_loop.index < data.years|length %}
+                                            {% for inner_year in data.years[year_loop.index:] %}
+                                                {% if inner_year in data.session_result_data and driver in data.session_result_data[inner_year] %}
+                                                    <td>{{data.session_result_data[inner_year][driver].qualifying}}</td>
+                                                    <td data-order="{{data.session_result_data[inner_year][driver].start}}">{{data.session_result_data[inner_year][driver].ordinal_start}}</td>
+                                                    {% if data.session_result_data[inner_year][driver].finish == 1 %}
+                                                        <td data-order="{{data.session_result_data[year][driver].finish}}" style="background-color:#ffdc73;">{{data.session_result_data[inner_year][driver].ordinal_finish}}</td>
+                                                    {% elif data.session_result_data[inner_year][driver].finish == 2 %}
+                                                        <td data-order="{{data.session_result_data[inner_year][driver].finish}}" style="background-color:#d8d8d8;">{{data.session_result_data[inner_year][driver].ordinal_finish}}</td>
+                                                    {% elif data.session_result_data[inner_year][driver].finish == 3 %}
+                                                        <td data-order="{{data.session_result_data[inner_year][driver].finish}}" style="background-color:#cd7f32;">{{data.session_result_data[inner_year][driver].ordinal_finish}}</td>
+                                                    {% else %}
+                                                        <td data-order="{{data.session_result_data[inner_year][driver].finish}}">{{data.session_result_data[inner_year][driver].ordinal_finish}}</td>
+                                                    {% endif %}
+                                                    <td data-sortable="false">{{data.session_result_data[inner_year][driver].status}}</td>
+                                                {% else %}
+                                                    <td data-order="25">N/A</td>
+                                                    <td data-order="25">N/A</td>
+                                                    <td data-order="25">N/A</td>
+                                                    <td>N/A</td>
+                                                {% endif %}
+                                            {% endfor %}
+                                        {% endif %}
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js" integrity="sha384-w76AqPfDkMBDXo30jS1Sgez6pr3x5MlQ1ZAGC+nuZB+EYdgRZgiwxhTBTkF7CXvN" crossorigin="anonymous"></script>
+        <script>
+            $(document).ready(function () {
+                $('.datatable').DataTable({
+                    paging: false,
+                });
+            });
+        </script>
+        <script>
+            !function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src='https://weatherwidget.io/js/widget.min.js';fjs.parentNode.insertBefore(js,fjs);}}(document,'script','weatherwidget-io-js');
+        </script>
+    </body>
+</html>

@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Driver</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-GLhlTQ8iRABdZLl6O3oVMWSktQOp6b7In1Zl3/Jr59b6EGGoI1aFkw7cmDA6j6gD" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+        <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.25/css/jquery.dataTables.css">
+        <style>
+            .svg-container {
+                display: inline-block;
+                position: relative;
+                width: 100%;
+                padding-bottom: 70%; /* aspect ratio */
+                vertical-align: top;
+                overflow: hidden;
+            }
+            
+            .svg-content-responsive {
+                display: inline-block;
+                position: absolute;
+                top: 10px;
+                left: 0;
+            }
+        </style>
+    </head>
+    <body>
+        {% macro get_compound_colour(compound) -%}
+        {% if compound == 'SOFT' %}#dc3545{% elif compound == 'MEDIUM' %}#ffc107{% elif compound == 'INTERMEDIATE' %}#198754{% elif compound == 'WET' %}#0d6efd{% else %}#6c757d{% endif %} 
+        {%- endmacro %}
+        {% macro get_compound_colour_light(compound) -%}
+        {% if compound == 'SOFT' %}#f8d7da{% elif compound == 'MEDIUM' %}#fff3cd{% elif compound == 'INTERMEDIATE' %}#d1e7dd{% elif compound == 'WET' %}#cfe2ff{% else %}#e2e3e5{% endif %} 
+        {%- endmacro %}
+        {% if data.upcoming_gp.weather %}
+            <a class="weatherwidget-io" href="https://forecast7.com/en{{data.upcoming_gp.weather}}" data-label_1="{{data.upcoming_gp.city}}" data-label_2="Upcoming Grand Prix" data-theme="original"></a>
+        {% endif %}
+        <div class="container-fluid">
+            <nav class="navbar">
+                <div class="container-fluid">
+                    <a href="/" class="navbar-brand">
+                        <img src="/images/logo.avif" width="175" height="125">
+                    </a>
+                    <div class="hstack gap-3 d-flex">
+                        <a class="btn btn-lg btn-outline-dark" type="button" href="https://www.formula1.com/en/results.html/{{data.years[0]}}/drivers.html">
+                            Drivers Standings
+                        </a>
+                        <a class="btn btn-lg btn-outline-dark" type="button" href="https://www.formula1.com/en/results.html/{{data.years[0]}}/team.html">
+                            Constructors Standings
+                        </a>
+                        <div class="btn-group">
+                            <button class="btn btn-lg btn-outline-dark dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                              {{data.current_gp}}
+                            </button>
+                            <ul class="dropdown-menu">
+                                {% for gp in data.gps %}
+                                    <li><a class="dropdown-item" href="/gps/{{gp.name}}/drivers/{{data.driver1}}/{{data.year1}}/{{data.session1}}/compare/{{data.driver2}}/{{data.year2}}/{{data.session2}}">{{gp.name}}</a></li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+            <div class="container-fluid">
+                <div class="row row-cols-1 row-cols-md-2">
+                    <div class="col vstack gap-2">
+                        <div class="btn-group">
+                            <div class="dropdown">
+                                <button class="btn btn-outline-dark dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    {{data.driver_full_name1}}
+                                </button>
+                                <ul class="dropdown-menu">
+                                    {% for driver in data.drivers %}
+                                        <li><a class="dropdown-item" href="/gps/{{data.current_gp}}/drivers/{{driver['Abbreviation']}}/{{data.year1}}/{{data.session1}}/compare/{{data.driver2}}/{{data.year2}}/{{data.session2}}">{{driver['FullName']}}</a></li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            <div class="dropdown ms-1">
+                                <button class="btn btn-outline-dark dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    {{data.year1}}
+                                </button>
+                                <ul class="dropdown-menu">
+                                    {% for year in data.years %}
+                                        <li><a class="dropdown-item" href="/gps/{{data.current_gp}}/drivers/{{data.driver1}}/{{year}}/{{data.session1}}/compare/{{data.driver2}}/{{data.year2}}/{{data.session2}}">{{year}}</a></li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            <div class="dropdown ms-1">
+                                <button class="btn btn-outline-dark dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    {{data.session1.capitalize()}}
+                                </button>
+                                <ul class="dropdown-menu">
+                                    {% for session in data.sessions %}
+                                        <li><a class="dropdown-item" href="/gps/{{data.current_gp}}/drivers/{{data.driver1}}/{{data.year1}}/{{session}}/compare/{{data.driver2}}/{{data.year2}}/{{data.session2}}">{{session}}</a></li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <div class="row row-cols-1 row-cols-md-2">
+                                    <div class="col">
+                                        <div class="card mb-4">
+                                            <div class="card-header">Qualifying</div>
+                                            <div class="card-body">
+                                                <h1 class="card-title text-center">{{data.qualifying_results1}}</h1>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div class="card mb-4">
+                                            <div class="card-header">Race</div>
+                                            <div class="card-body">
+                                                <h1 class="card-title text-center">{{data.race_results1}}</h1>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% if data.driver_stint_data1 %}
+                                    <div class="card mb-4">
+                                        <div class="card-header">Stints</div>
+                                        <div class="card-body">
+                                            <div id="chart-1" class="svg-container"></div>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                                {% if data.lap_data_by_compound1 %}
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <table class="datatable">
+                                                <thead>
+                                                    <tr>
+                                                        <th scope="col" data-sortable="false">Compound</th>
+                                                        <th>Average Lap Time</th>
+                                                        <th>Fastest Lap Time</th>
+                                                        <th>Slowest Lap Time</th>
+                                                        <th># Laps</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for compound in data.lap_data_by_compound1 %}
+                                                        <tr>
+                                                            {% if compound.lower() == 'soft' %}
+                                                                <td data-order="{{compound}}" style="background-color: {{get_compound_colour_light(compound)}};"><img src="/images/soft.png" width="36" height="36"></td>
+                                                            {% elif compound.lower() == 'medium' %}
+                                                                <td data-order="{{compound}}" style="background-color: {{get_compound_colour_light(compound)}};"><img src="/images/medium.png" width="36" height="36"></td>
+                                                            {% elif compound.lower() == 'intermediate' %}
+                                                                <td data-order="{{compound}}" style="background-color: {{get_compound_colour_light(compound)}};"><img src="/images/wet.png" width="36" height="36"></td>
+                                                            {% elif compound.lower() == 'wet' %}
+                                                                <td data-order="{{compound}}" style="background-color: {{get_compound_colour_light(compound)}};"><img src="/images/wet.png" width="36" height="36"></td>
+                                                            {% else %}
+                                                                <td data-order="{{compound}}" style="background-color: {{get_compound_colour_light(compound)}};"><img src="/images/hard.png" width="36" height="36"></td>
+                                                            {% endif %}
+                                                            <td style="background-color: {{get_compound_colour_light(compound)}};">{{data.lap_data_by_compound1[compound]['avg_lap_time']}}</td>
+                                                            <td style="background-color: {{get_compound_colour_light(compound)}};">{{data.lap_data_by_compound1[compound]['fastest_lap_time']}}</td>
+                                                            <td style="background-color: {{get_compound_colour_light(compound)}};">{{data.lap_data_by_compound1[compound]['slowest_lap_time']}}</td>
+                                                            <td style="background-color: {{get_compound_colour_light(compound)}};">{{data.lap_data_by_compound1[compound]['num_laps']}}</td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col vstack gap-2">
+                        <div class="btn-group">
+                            <div class="dropdown">
+                                <button class="btn btn-outline-dark dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    {{data.driver_full_name2}}
+                                </button>
+                                <ul class="dropdown-menu">
+                                    {% for driver in data.drivers %}
+                                        <li><a class="dropdown-item" href="/gps/{{data.current_gp}}/drivers/{{data.driver1}}/{{data.year1}}/{{data.session1}}/compare/{{driver['Abbreviation']}}/{{data.year2}}/{{data.session2}}">{{driver['FullName']}}</a></li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            <div class="dropdown ms-1">
+                                <button class="btn btn-outline-dark dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    {{data.year2}}
+                                </button>
+                                <ul class="dropdown-menu">
+                                    {% for year in data.years %}
+                                        <li><a class="dropdown-item" href="/gps/{{data.current_gp}}/drivers/{{data.driver1}}/{{data.year1}}/{{data.session1}}/compare/{{data.driver2}}/{{year}}/{{data.session2}}">{{year}}</a></li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            <div class="dropdown ms-1">
+                                <button class="btn btn-outline-dark dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    {{data.session2.capitalize()}}
+                                </button>
+                                <ul class="dropdown-menu">
+                                    {% for session in data.sessions %}
+                                        <li><a class="dropdown-item" href="/gps/{{data.current_gp}}/drivers/{{data.driver1}}/{{data.year1}}/{{data.session1}}/compare/{{data.driver2}}/{{data.year2}}/{{session}}">{{session}}</a></li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <div class="row row-cols-1 row-cols-md-2">
+                                    <div class="col">
+                                        <div class="card mb-4">
+                                            <div class="card-header">Qualifying</div>
+                                            <div class="card-body">
+                                                <h1 class="card-title text-center">{{data.qualifying_results2}}</h1>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div class="card mb-4">
+                                            <div class="card-header">Race</div>
+                                            <div class="card-body">
+                                                <h1 class="card-title text-center">{{data.race_results2}}</h1>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% if data.driver_stint_data2 %}
+                                    <div class="card mb-4">
+                                        <div class="card-header">Stints</div>
+                                        <div class="card-body">
+                                            <div id="chart-2" class="svg-container"></div>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                                {% if data.lap_data_by_compound2 %}
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <table class="datatable">
+                                                <thead>
+                                                    <tr>
+                                                        <th scope="col" data-sortable="false">Compound</th>
+                                                        <th>Average Lap Time</th>
+                                                        <th>Fastest Lap Time</th>
+                                                        <th>Slowest Lap Time</th>
+                                                        <th># Laps</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for compound in data.lap_data_by_compound2 %}
+                                                        <tr>
+                                                            {% if compound.lower() == 'soft' %}
+                                                                <td data-order="{{compound}}" style="background-color: {{get_compound_colour_light(compound)}};"><img src="/images/soft.png" width="36" height="36"></td>
+                                                            {% elif compound.lower() == 'medium' %}
+                                                                <td data-order="{{compound}}" style="background-color: {{get_compound_colour_light(compound)}};"><img src="/images/medium.png" width="36" height="36"></td>
+                                                            {% elif compound.lower() == 'intermediate' %}
+                                                                <td data-order="{{compound}}" style="background-color: {{get_compound_colour_light(compound)}};"><img src="/images/wet.png" width="36" height="36"></td>
+                                                            {% elif compound.lower() == 'wet' %}
+                                                                <td data-order="{{compound}}" style="background-color: {{get_compound_colour_light(compound)}};"><img src="/images/wet.png" width="36" height="36"></td>
+                                                            {% else %}
+                                                                <td data-order="{{compound}}" style="background-color: {{get_compound_colour_light(compound)}};"><img src="/images/hard.png" width="36" height="36"></td>
+                                                            {% endif %}
+                                                            <td style="background-color: {{get_compound_colour_light(compound)}};">{{data.lap_data_by_compound2[compound]['avg_lap_time']}}</td>
+                                                            <td style="background-color: {{get_compound_colour_light(compound)}};">{{data.lap_data_by_compound2[compound]['fastest_lap_time']}}</td>
+                                                            <td style="background-color: {{get_compound_colour_light(compound)}};">{{data.lap_data_by_compound2[compound]['slowest_lap_time']}}</td>
+                                                            <td style="background-color: {{get_compound_colour_light(compound)}};">{{data.lap_data_by_compound2[compound]['num_laps']}}</td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js" integrity="sha384-w76AqPfDkMBDXo30jS1Sgez6pr3x5MlQ1ZAGC+nuZB+EYdgRZgiwxhTBTkF7CXvN" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+        <script src="/scripts/functions.js"></script>
+        <script src="/scripts/line_chart.js"></script>
+        <script type="module">
+            import * as Plot from "https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6/+esm"
+            {% if data.driver_stint_data1 %}
+                const data1 = [
+                    {% for stint in data.driver_stint_data1 %}
+                        {% set stint_loop = loop %}
+                        {% for lap in data.driver_stint_data1[stint].laps %}
+                            {x:{{loop.index}},y:new Date({{lap['lap_time']}}),z:"{{stint}}"}
+                            {% if stint_loop.index <= data.driver_stint_data1|length %},{% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                ]
+                const runColour1 = {
+                    {% for stint in data.driver_stint_data1 %}
+                        '{{stint}}': '{{get_compound_colour(data.driver_stint_data1[stint].compound)}}'
+                        {% if loop.index <= data.driver_stint_data1|length %},{% endif %}
+                    {% endfor %}
+                }
+                const stintLength1 = [
+                    {% for stint in data.driver_stint_data1 %}
+                        {{data.driver_stint_data1[stint].laps|length}}
+                        {% if loop.index <= data.driver_stint_data1|length %},{% endif %}
+                    {% endfor %}
+                ]
+                const chart1 = LineChart(data1, {
+                    title: d => `${d.z} (${formatTime(d.y)})`,
+                    x: d => d.x,
+                    y: d => d.y,
+                    z: d => d.z,
+                    color: d => runColour1[d],
+                    xType: d3.scaleLinear,
+                    yType: d3.scaleTime,
+                    yLabel: "Lap Times",
+                    yDomain: [d3.min(data1, d => d.y), d3.max(data1, d => d.y)],
+                    yFormat: d3.timeFormat("%M:%S:%L"),
+                    xTicks: d3.max(stintLength1, d => d)
+                })
+                document.querySelector("#chart-1").appendChild(chart1)
+            {% endif %}
+            {% if data.driver_stint_data2 %}
+                const data2 = [
+                    {% for stint in data.driver_stint_data2 %}
+                        {% set stint_loop = loop %}
+                        {% for lap in data.driver_stint_data2[stint].laps %}
+                            {x:{{loop.index}},y:new Date({{lap['lap_time']}}),z:"{{stint}}"}
+                            {% if stint_loop.index <= data.driver_stint_data2|length %},{% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                ]
+                const runColour2 = {
+                    {% for stint in data.driver_stint_data2 %}
+                        '{{stint}}': '{{get_compound_colour(data.driver_stint_data2[stint].compound)}}'
+                        {% if loop.index <= data.driver_stint_data2|length %},{% endif %}
+                    {% endfor %}
+                }
+                const stintLength2 = [
+                    {% for stint in data.driver_stint_data2 %}
+                        {{data.driver_stint_data2[stint].laps|length}}
+                        {% if loop.index <= data.driver_stint_data2|length %},{% endif %}
+                    {% endfor %}
+                ]
+                const chart2 = LineChart(data2, {
+                    title: d => `${d.z} (${formatTime(d.y)})`,
+                    x: d => d.x,
+                    y: d => d.y,
+                    z: d => d.z,
+                    color: d => runColour2[d],
+                    xType: d3.scaleLinear,
+                    yType: d3.scaleTime,
+                    yLabel: "Lap Times",
+                    yDomain: [d3.min(data2, d => d.y), d3.max(data2, d => d.y)],
+                    yFormat: d3.timeFormat("%M:%S:%L"),
+                    xTicks: d3.max(stintLength2, d => d)
+                })
+                document.querySelector("#chart-2").appendChild(chart2)
+            {% endif %}
+        </script>
+        <script>
+            $(document).ready(function () {
+                $('.datatable').DataTable({
+                    paging: false,
+                    searching: false
+                });
+            });
+        </script>
+        <script>
+            !function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src='https://weatherwidget.io/js/widget.min.js';fjs.parentNode.insertBefore(js,fjs);}}(document,'script','weatherwidget-io-js');
+        </script>
+    </body>
+</html>
