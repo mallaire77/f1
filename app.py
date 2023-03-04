@@ -211,7 +211,7 @@ def get_lap_data_by_driver_by_compound(year, gp, sessions):
             num_laps = compound_lap_data['num_laps']
             fastest_lap_time = compound_lap_data['fastest_lap_time']
             lap_times = filtered_laps[(filtered_laps['Driver'] == driver) & (filtered_laps['Compound'] == compound)]['LapTime']
-            lap_times_below_quantile = lap_times[lap_times < fastest_lap_time + datetime.timedelta(seconds=7)]
+            lap_times_below_quantile = lap_times[lap_times < fastest_lap_time + datetime.timedelta(seconds=3)]
             avg_lap_time = lap_times_below_quantile.mean()
             slowest_lap_time = lap_times_below_quantile.max()
             if avg_lap_time is not pandas.NaT:
@@ -284,6 +284,8 @@ def find_next_gp(gp):
                 return calendar_2023[i + 1]['name']
     return None
 
+# Tyres used
+# Tyres left
 @app.route("/gps/<gp>/drivers/<driver1>/<year1>/<session1>/compare/<driver2>/<year2>/<session2>")
 def driver(gp, driver1, year1, session1, driver2, year2, session2):
     if session1.lower() == 'practice':
