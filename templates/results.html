@@ -14,7 +14,7 @@
         {% if compound == 'SOFT' %}#f8d7da{% elif compound == 'MEDIUM' %}#fff3cd{% elif compound == 'INTERMEDIATE' %}#d1e7dd{% elif compound == 'WET' %}#cfe2ff{% else %}#e2e3e5{% endif %} 
         {%- endmacro %}
         {% if data.upcoming_gp.weather %}
-            <a class="weatherwidget-io" href="https://forecast7.com/en{{data.upcoming_gp.weather}}" data-label_1="{{data.upcoming_gp.city}}" data-label_2="Upcoming Grand Prix" data-theme="original"></a>
+            <a class="weatherwidget-io" href="https://forecast7.com/en{{data.upcoming_gp.weather}}" data-label_1="{{data.upcoming_gp.name}}" data-label_2="On {{data.upcoming_gp.date}}" data-theme="original"></a>
         {% endif %}
         <div class="container-fluid">
             <nav class="navbar">
@@ -23,12 +23,6 @@
                         <img src="/images/logo.avif" width="175" height="125">
                     </a>
                     <div class="hstack gap-3 d-flex">
-                        <a class="btn btn-lg btn-outline-dark" type="button" href="https://www.formula1.com/en/results.html/{{data.years[0]}}/drivers.html">
-                            Drivers Standings
-                        </a>
-                        <a class="btn btn-lg btn-outline-dark" type="button" href="https://www.formula1.com/en/results.html/{{data.years[0]}}/team.html">
-                            Constructors Standings
-                        </a>
                         <div class="btn-group">
                             <button class="btn btn-lg btn-outline-dark dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                               {{data.current_gp}}
@@ -147,8 +141,12 @@
                             {% for driver in data.session_result_data[year] %}
                                 {% if year_loop.index == 1 %}
                                     <tr>
-                                        <td><a href="/gps/{{data.current_gp}}/drivers/{{data.session_result_data[year][driver]}}/{{data.years[0]}}/race/compare/{{data.session_result_data[year][driver]}}/{{data.years[1]}}/race">{{data.session_result_data[year][driver].driver_full_name}}</a></td>
-                                        <td>{{data.session_result_data[year][driver].qualifying}}</td>
+                                        <td style="padding-bottom: 0;" data-order="{{driver}}">
+                                            <a href="/gps/{{data.current_gp}}/drivers/{{data.session_result_data[year][driver]}}/{{data.years[0]}}/race/compare/{{data.session_result_data[year][driver]}}/{{data.years[1]}}/race">
+                                                <img src="/images/{{driver.lower()}}.png" width="60" height="60"></img>
+                                            </a>
+                                        </td>
+                                        <td data-order="{{data.session_result_data[year][driver].qualifying}}">{{data.session_result_data[year][driver].ordinal_qualifying}}</td>
                                         <td data-order="{{data.session_result_data[year][driver].start}}">{{data.session_result_data[year][driver].ordinal_start}}</td>
                                         {% if data.session_result_data[year][driver].finish == 1 %}
                                             <td data-order="{{data.session_result_data[year][driver].finish}}" style="background-color:#ffdc73;">{{data.session_result_data[year][driver].ordinal_finish}}</td>
@@ -162,7 +160,7 @@
                                         <td data-sortable="false">{{data.session_result_data[year][driver].status}}</td>
                                         {% for inner_year in data.years[1:] %}
                                             {% if inner_year in data.session_result_data and driver in data.session_result_data[inner_year] %}
-                                                <td>{{data.session_result_data[inner_year][driver].qualifying}}</td>
+                                                <td data-order="{{data.session_result_data[inner_year][driver].qualifying}}">{{data.session_result_data[inner_year][driver].ordinal_qualifying}}</td>
                                                 <td data-order="{{data.session_result_data[inner_year][driver].start}}">{{data.session_result_data[inner_year][driver].ordinal_start}}</td>
                                                 {% if data.session_result_data[inner_year][driver].finish == 1 %}
                                                     <td data-order="{{data.session_result_data[year][driver].finish}}" style="background-color:#ffdc73;">{{data.session_result_data[inner_year][driver].ordinal_finish}}</td>
@@ -182,56 +180,26 @@
                                             {% endif %}
                                         {% endfor %}
                                     </tr>
-                                {% elif (driver not in data.session_result_data[data.years[year_loop.index - 2]]) %}
-                                    <tr>
-                                        <td><a href="/gps/{{data.current_gp}}/drivers/{{data.session_result_data[year][driver].driver}}/{{data.years[0]}}/race/compare/{{data.session_result_data[year][driver].driver}}/{{data.years[1]}}/race">{{data.session_result_data[year][driver].driver_full_name}}</a></td>
-                                        {% for _ in range(0, year_loop.index - 1) %}
-                                            <td data-order="25">N/A</td>
-                                            <td data-order="25">N/A</td>
-                                            <td data-order="25">N/A</td>
-                                            <td>N/A</td>
-                                        {% endfor %}
-                                        <td>{{data.session_result_data[year][driver].qualifying}}</td>
-                                        <td data-order="{{data.session_result_data[year][driver].start}}">{{data.session_result_data[year][driver].ordinal_start}}</td>
-                                        {% if data.session_result_data[year][driver].finish == 1 %}
-                                            <td data-order="{{data.session_result_data[year][driver].finish}}" style="background-color:#ffdc73;">{{data.session_result_data[year][driver].ordinal_finish}}</td>
-                                        {% elif data.session_result_data[year][driver].finish == 2 %}
-                                            <td data-order="{{data.session_result_data[year][driver].finish}}" style="background-color:#d8d8d8;">{{data.session_result_data[year][driver].ordinal_finish}}</td>
-                                        {% elif data.session_result_data[year][driver].finish == 3 %}
-                                            <td data-order="{{data.session_result_data[year][driver].finish}}" style="background-color:#cd7f32;">{{data.session_result_data[year][driver].ordinal_finish}}</td>
-                                        {% else %}
-                                            <td data-order="{{data.session_result_data[year][driver].finish}}">{{data.session_result_data[year][driver].ordinal_finish}}</td>
-                                        {% endif %}
-                                        <td data-sortable="false">{{data.session_result_data[year][driver].status}}</td>
-                                        {% if year_loop.index < data.years|length %}
-                                            {% for inner_year in data.years[year_loop.index:] %}
-                                                {% if inner_year in data.session_result_data and driver in data.session_result_data[inner_year] %}
-                                                    <td>{{data.session_result_data[inner_year][driver].qualifying}}</td>
-                                                    <td data-order="{{data.session_result_data[inner_year][driver].start}}">{{data.session_result_data[inner_year][driver].ordinal_start}}</td>
-                                                    {% if data.session_result_data[inner_year][driver].finish == 1 %}
-                                                        <td data-order="{{data.session_result_data[year][driver].finish}}" style="background-color:#ffdc73;">{{data.session_result_data[inner_year][driver].ordinal_finish}}</td>
-                                                    {% elif data.session_result_data[inner_year][driver].finish == 2 %}
-                                                        <td data-order="{{data.session_result_data[inner_year][driver].finish}}" style="background-color:#d8d8d8;">{{data.session_result_data[inner_year][driver].ordinal_finish}}</td>
-                                                    {% elif data.session_result_data[inner_year][driver].finish == 3 %}
-                                                        <td data-order="{{data.session_result_data[inner_year][driver].finish}}" style="background-color:#cd7f32;">{{data.session_result_data[inner_year][driver].ordinal_finish}}</td>
-                                                    {% else %}
-                                                        <td data-order="{{data.session_result_data[inner_year][driver].finish}}">{{data.session_result_data[inner_year][driver].ordinal_finish}}</td>
-                                                    {% endif %}
-                                                    <td data-sortable="false">{{data.session_result_data[inner_year][driver].status}}</td>
-                                                {% else %}
-                                                    <td data-order="25">N/A</td>
-                                                    <td data-order="25">N/A</td>
-                                                    <td data-order="25">N/A</td>
-                                                    <td>N/A</td>
-                                                {% endif %}
-                                            {% endfor %}
-                                        {% endif %}
-                                    </tr>
+                                {% else %}
                                 {% endif %}
                             {% endfor %}
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+            <div class="hstack gap-3 d-flex justify-content-center">
+                <a href="https://www.formula1.com/en/results.html/{{data.years[0]}}/drivers.html">
+                    Drivers Standings
+                </a>
+                <a href="https://www.formula1.com/en/results.html/{{data.years[0]}}/team.html">
+                    Constructors Standings
+                </a>
+                <a href="https://www.formula1.com/en/f1-live.html">
+                    Live Timing
+                </a>
+                <a href="https://twitter.com/pirellisport">
+                    Pirelli
+                </a>
             </div>
         </div>
         <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>

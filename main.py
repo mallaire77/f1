@@ -1,11 +1,15 @@
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
+import os
 import datetime
+
+import pandas
+
 import fastf1
+
 import flask
 import flask_caching
-import pandas
 
 ordinal = lambda n: "%d%s" % (n,"tsnrhtdd"[(n//10%10!=1)*(n%10<4)*n%10::4])
 
@@ -14,18 +18,17 @@ def format_ms(ms):
     minutes, seconds = divmod(seconds, 60)
     return f'{minutes:02d}:{seconds:02d}:{milliseconds:03d}'
 
-fastf1.Cache.enable_cache('./f1-cache')
+fastf1.Cache.enable_cache('./.cache')
 
-cache = flask_caching.Cache(config={'CACHE_TYPE': 'SimpleCache'})
+cache = flask_caching.Cache(config={'CACHE_TYPE': 'FileSystemCache', 'CACHE_DIR': './.cache', 'CACHE_THRESHOLD': 10000})
 
 app = flask.Flask(__name__)
 
 cache.init_app(app)
 
-years = [
-    2023,
-    2022,
-]
+year = 2023
+
+years = [year, year - 1]
 
 # Weather: https://weatherwidget.io/
 calendar_2023 = [
@@ -54,32 +57,6 @@ calendar_2023 = [
     {'name': 'Abu Dhabi Grand Prix', 'city': 'Yas Marina', 'date': '2023-11-26', 'weather': '/24d5054d62/yas-island/'}
 ]
 
-calendar_2024 = [
-    {'name': 'Bahrain Grand Prix', 'date': '2023-03-05'},
-    {'name': 'Saudi Arabian Grand Prix', 'date': '2023-03-19'},
-    {'name': 'Australian Grand Prix', 'date': '2023-04-02'},
-    {'name': 'Azerbaijan Grand Prix' , 'date': '2023-04-30'},
-    {'name': 'Miami', 'date': '2023-05-07'},
-    {'name': 'Emilia Romagna Grand Prix', 'date': '2023-05-21'},
-    {'name': 'Monaco Grand Prix', 'date': '2023-05-28'},
-    {'name': 'Spanish Grand Prix', 'date': '2023-06-04'},
-    {'name': 'Canadian Grand Prix', 'date': '2023-06-18'},
-    {'name': 'Austrian Grand Prix', 'date': '2023-07-02'},
-    {'name': 'British Grand Prix', 'date': '2023-07-09'},
-    {'name': 'Hungarian Grand Prix', 'date': '2023-07-23'},
-    {'name': 'Belgian Grand Prix', 'date': '2023-08-30'},
-    {'name': 'Dutch Grand Prix', 'date': '2023-08-27'},
-    {'name': 'Italian Grand Prix', 'date': '2023-09-03'},
-    {'name': 'Singapore Grand Prix', 'date': '2023-09-17'},
-    {'name': 'Japanese Grand Prix', 'date': '2023-09-24'},
-    {'name': 'Qatar Grand Prix', 'date': '2023-10-08'},
-    {'name': 'United States Grand Prix', 'date': '2023-10-22'},
-    {'name': 'Mexican Grand Prix', 'date': '2023-10-29'},
-    {'name': 'Brazilian Grand Prix', 'date': '2023-11-05'},
-    {'name': 'Las Vegas', 'date': '2023-11-18'},
-    {'name': 'Abu Dhabi Grand Prix', 'date': '2023-11-26'}
-]
-
 practice_sessions = [
     'fp1',
     'fp2',
@@ -93,7 +70,7 @@ session_groups = [
     'Results'
 ]
 
-@cache.memoize(timeout=None)
+@cache.memoize(timeout=86400)
 def get_tyre_strategy_data(year, gp):
     strategy_data = {}
     winner = ""
@@ -118,7 +95,7 @@ def get_tyre_strategy_data(year, gp):
         strategy_data['popular_strategy'] = sorted(strategies.items(), key=lambda x: x[1], reverse=True)[0][0]
     return strategy_data
 
-@cache.memoize(timeout=None)
+@cache.memoize(timeout=86400)
 def get_session_data(year, gp):
     session_data = {}
     race_session = fastf1.get_session(int(year), gp, 'race')
@@ -138,7 +115,7 @@ def get_session_data(year, gp):
         session_data[driver] = {
             'driver': driver,
             'driver_full_name': driver_full_name,
-            'ordinal_qualifying': qualifying,
+            'ordinal_qualifying': ordinal(int(qualifying)),
             'qualifying': qualifying,
             'ordinal_start': ordinal(int(start)),
             'start': int(start),
@@ -148,7 +125,7 @@ def get_session_data(year, gp):
         }
     return session_data
 
-@cache.memoize(timeout=None)
+@cache.memoize(timeout=86400)
 def get_driver_stint_data(driver, year, gp, sessions):
     ff1_sessions = []
     for session in sessions:
@@ -185,8 +162,8 @@ def get_driver_stint_data(driver, year, gp, sessions):
                 })
     return stint_data
 
-@cache.memoize(timeout=None)
-def get_lap_data_by_driver_by_compound(year, gp, sessions):
+@cache.memoize(timeout=86400)
+def get_lap_data_by_compound(year, gp, sessions, threshold):
     ff1_session_laps = []
     for session in sessions:
         try:
@@ -201,32 +178,58 @@ def get_lap_data_by_driver_by_compound(year, gp, sessions):
     else:
         all_laps = pandas.concat(ff1_session_laps)
         lap_data_by_compound = {}
-        filtered_laps = all_laps[all_laps['Compound'].notnull()]
-        driver_compound_lap_data = filtered_laps.groupby(['Driver', 'Compound']).agg({'LapTime': ['count', 'mean', 'min']})
-        driver_compound_lap_data.columns = ['num_laps', 'avg_lap_time', 'fastest_lap_time']
-        driver_compound_lap_data = driver_compound_lap_data.reset_index().to_dict('records')    
+        all_laps = all_laps[all_laps['Compound'].notnull() & (all_laps['Compound'] != "UNKNOWN")]
+        all_laps['Constructor'] = all_laps.apply(lambda lap: get_driver_constructor(year, gp, lap['Driver']), axis=1)
+        driver_compound_lap_data = all_laps.groupby(['Driver', 'Compound']).agg({'LapTime': ['min']})
+        driver_compound_lap_data.columns = ['fastest_lap_time']
+        driver_compound_lap_data = driver_compound_lap_data.reset_index().to_dict('records')
         for compound_lap_data in driver_compound_lap_data:
             driver = compound_lap_data['Driver']
             compound = compound_lap_data['Compound']
-            num_laps = compound_lap_data['num_laps']
             fastest_lap_time = compound_lap_data['fastest_lap_time']
-            lap_times = filtered_laps[(filtered_laps['Driver'] == driver) & (filtered_laps['Compound'] == compound)]['LapTime']
-            lap_times_below_quantile = lap_times[lap_times < fastest_lap_time + datetime.timedelta(seconds=3)]
+            lap_times = all_laps[(all_laps['Driver'] == driver) & (all_laps['Compound'] == compound)]['LapTime']
+            lap_times_below_quantile = lap_times[lap_times < fastest_lap_time + datetime.timedelta(seconds=threshold)]
             avg_lap_time = lap_times_below_quantile.mean()
             slowest_lap_time = lap_times_below_quantile.max()
             if avg_lap_time is not pandas.NaT:
-                if driver not in lap_data_by_compound:
-                    lap_data_by_compound[driver] = {}
-                lap_data_by_compound[driver][compound] = {
+                if 'drivers' not in lap_data_by_compound:
+                    lap_data_by_compound['drivers'] = {}
+                if driver not in lap_data_by_compound['drivers']:
+                    lap_data_by_compound['drivers'][driver] = {}
+                lap_data_by_compound['drivers'][driver][compound] = {
                     'driver': driver,
                     'compound': compound,
                     'avg_lap_time': format_ms(avg_lap_time.total_seconds()),
                     'fastest_lap_time': format_ms(fastest_lap_time.total_seconds()),
                     'slowest_lap_time': format_ms(slowest_lap_time.total_seconds()),
-                    'num_laps': num_laps
+                    'num_laps': len(lap_times_below_quantile)
+                }
+        constructor_compound_lap_data = all_laps.groupby(['Constructor', 'Compound']).agg({'LapTime': ['min']})
+        constructor_compound_lap_data.columns = ['fastest_lap_time']
+        constructor_compound_lap_data = constructor_compound_lap_data.reset_index().to_dict('records')
+        for compound_lap_data in constructor_compound_lap_data:
+            constructor = compound_lap_data['Constructor']
+            constructor_key = constructor.replace(" ", "").lower()
+            constructor_compound = compound_lap_data['Compound']
+            constructor_fastest_lap_time = compound_lap_data['fastest_lap_time']
+            constructor_lap_times = all_laps[(all_laps['Constructor'] == constructor) & (all_laps['Compound'] == constructor_compound)]['LapTime']
+            constructor_lap_times_below_quantile = constructor_lap_times[constructor_lap_times < constructor_fastest_lap_time + datetime.timedelta(seconds=threshold)]
+            constructor_avg_lap_time = constructor_lap_times_below_quantile.mean()
+            constructor_slowest_lap_time = constructor_lap_times_below_quantile.max()
+            if constructor_avg_lap_time is not pandas.NaT:
+                if 'constructors' not in lap_data_by_compound:
+                    lap_data_by_compound['constructors'] = {}
+                if constructor_key not in lap_data_by_compound['constructors']:
+                    lap_data_by_compound['constructors'][constructor_key] = {}
+                lap_data_by_compound['constructors'][constructor_key][constructor_compound] = {
+                    'constructor': constructor,
+                    'compound': constructor_compound,
+                    'avg_lap_time': format_ms(constructor_avg_lap_time.total_seconds()),
+                    'fastest_lap_time': format_ms(constructor_fastest_lap_time.total_seconds()),
+                    'slowest_lap_time': format_ms(constructor_slowest_lap_time.total_seconds()),
+                    'num_laps': len(constructor_lap_times_below_quantile)
                 }
         return lap_data_by_compound
-
 
 @cache.memoize(timeout=None)
 def get_driver_race_results(driver, year, gp):
@@ -247,6 +250,12 @@ def get_driver_qualifying_results(driver, year, gp):
     if not driver_qualifying_result1.empty:
         qualifying_results = ordinal(int(driver_qualifying_result1.iloc[0]['Position']))
     return qualifying_results
+
+@cache.memoize(timeout=None)
+def get_driver_constructor(year, gp, driver):
+    ff1_session0 = fastf1.get_session(int(year), gp, 'fp1')
+    ff1_session0.load()
+    return ff1_session0.get_driver(driver)['TeamName']
 
 @cache.memoize(timeout=None)
 def get_drivers(gp):
@@ -288,11 +297,16 @@ def find_next_gp(gp):
 # Tyres left
 @app.route("/gps/<gp>/drivers/<driver1>/<year1>/<session1>/compare/<driver2>/<year2>/<session2>")
 def driver(gp, driver1, year1, session1, driver2, year2, session2):
+    if flask.request.args.get('threshold'):
+        threshold = int(flask.request.args.get('threshold'))
+    else:
+        threshold = 3
+    
     if session1.lower() == 'practice':
-        lap_data_by_compound1 = get_lap_data_by_driver_by_compound(year1, gp, practice_sessions)
+        lap_data_by_compound1 = get_lap_data_by_compound(year1, gp, practice_sessions, threshold)['drivers']
         driver_stint_data1 = get_driver_stint_data(driver1, year1, gp, practice_sessions)
     else:
-        lap_data_by_compound1 = get_lap_data_by_driver_by_compound(year1, gp, [session1.lower()])
+        lap_data_by_compound1 = get_lap_data_by_compound(year1, gp, [session1.lower()], threshold)['drivers']
         driver_stint_data1 = get_driver_stint_data(driver1, year1, gp, [session1.lower()])
     if driver1 in lap_data_by_compound1:
         lap_data_by_compound1 = lap_data_by_compound1[driver1]
@@ -300,10 +314,10 @@ def driver(gp, driver1, year1, session1, driver2, year2, session2):
         lap_data_by_compound1 = {}
 
     if session2.lower() == 'practice':
-        lap_data_by_compound2 = get_lap_data_by_driver_by_compound(year2, gp, practice_sessions)
+        lap_data_by_compound2 = get_lap_data_by_compound(year2, gp, practice_sessions, threshold)['drivers']
         driver_stint_data2 = get_driver_stint_data(driver2, year2, gp, practice_sessions)
     else:
-        lap_data_by_compound2 = get_lap_data_by_driver_by_compound(year2, gp, [session2.lower()])
+        lap_data_by_compound2 = get_lap_data_by_compound(year2, gp, [session2.lower()], threshold)['drivers']
         driver_stint_data2 = get_driver_stint_data(driver2, year2, gp, [session2.lower()])
     if driver2 in lap_data_by_compound2:
         lap_data_by_compound2 = lap_data_by_compound2[driver2]
@@ -320,7 +334,7 @@ def driver(gp, driver1, year1, session1, driver2, year2, session2):
         if driver['Abbreviation'] == driver2:
             driver_full_name2 = driver['FullName']
 
-    ff1_session0 = fastf1.get_session(years[0], gp, 'fp1')
+    ff1_session0 = fastf1.get_session(year, gp, 'fp1')
     ff1_session0.load()
     current_gp = ff1_session0.event['EventName']
 
@@ -350,7 +364,7 @@ def driver(gp, driver1, year1, session1, driver2, year2, session2):
     }
     return flask.render_template("driver.html", data=data)
 
-# Add something like http://davidor.github.io/formula1-lap-charts/#/
+# TODO: Add lap chart: http://www.vislives.com/2012/03/d3-lap-charts.html
 @app.route("/gps/<gp>/results")
 def results(gp):
     session_result_data = {}
@@ -385,57 +399,20 @@ def results(gp):
 
     return flask.render_template("results.html", data=data)
 
-# Add table for constructor
-@app.route("/gps/<gp>/race")
-def race(gp):
-    lap_data_by_driver_by_compound = {}
+# TODO: Average pace loss per lap
+@app.route("/gps/<gp>/<session>")
+def session(gp, session):
+    if flask.request.args.get('threshold'):
+        threshold = int(flask.request.args.get('threshold'))
+    else:
+        threshold = 3
+
+    lap_data_by_compound = {}
     for year in years:
-        lap_data_by_driver_by_compound[year] = get_lap_data_by_driver_by_compound(year, gp, ['race'])
-
-    current_ff1_session = fastf1.get_session(years[0], gp, 'fp1')
-    current_ff1_session.load()
-    current_gp = current_ff1_session.event['EventName']
-    
-    data = {
-        'current_gp': current_gp,
-        'gps': calendar_2023,
-        'years': years,
-        'sessions': session_groups,
-        'upcoming_gp': get_upcoming_gp(),
-        'lap_data_by_driver_by_compound': lap_data_by_driver_by_compound
-    }
-
-    return flask.render_template("race.html", data=data)
-
-# Break up by qualifying round
-# Add table for constructor
-@app.route("/gps/<gp>/qualifying")
-def qualifying(gp):
-    lap_data_by_driver_by_compound = {}
-    for year in years:
-        lap_data_by_driver_by_compound[year] = get_lap_data_by_driver_by_compound(year, gp, ['qualifying'])
-
-    current_ff1_session = fastf1.get_session(years[0], gp, 'fp1')
-    current_ff1_session.load()
-    current_gp = current_ff1_session.event['EventName']
-
-    data = {
-        'current_gp': current_gp,
-        'gps': calendar_2023,
-        'years': years,
-        'sessions': session_groups,
-        'upcoming_gp': get_upcoming_gp(),
-        'lap_data_by_driver_by_compound': lap_data_by_driver_by_compound
-    }
-
-    return flask.render_template("qualifying.html", data=data)
-
-# Add table for constructor
-@app.route("/gps/<gp>/practice")
-def practice(gp):
-    lap_data_by_driver_by_compound = {}
-    for year in years:
-        lap_data_by_driver_by_compound[year] = get_lap_data_by_driver_by_compound(year, gp, practice_sessions)
+        if session.lower() == 'practice':
+            lap_data_by_compound[year] = get_lap_data_by_compound(year, gp, practice_sessions, threshold)
+        else:
+            lap_data_by_compound[year] = get_lap_data_by_compound(year, gp, [session], threshold)
 
     current_ff1_practice_session = fastf1.get_session(years[0], gp, 'fp1')
     current_ff1_practice_session.load()
@@ -445,20 +422,17 @@ def practice(gp):
         'current_gp': current_gp,
         'gps': calendar_2023,
         'years': years,
+        'current_session': session,
         'sessions': session_groups,
         'upcoming_gp': get_upcoming_gp(),
-        'lap_data_by_driver_by_compound': lap_data_by_driver_by_compound
+        'lap_data_by_compound': lap_data_by_compound
     }
 
-    return flask.render_template("practice.html", data=data)
-
-@app.route("/gps/upcoming/predictions")
-def predictions():
-    return flask.redirect(flask.url_for('practice',gp=get_upcoming_gp()['name']))
+    return flask.render_template("session.html", data=data)
 
 @app.route("/gps/upcoming")
 def upcoming():
-    return flask.redirect(flask.url_for('practice',gp=get_upcoming_gp()['name']))
+    return flask.redirect(flask.url_for('session',session='practice',gp=get_upcoming_gp()['name']))
 
 @app.route("/")
 def index():
@@ -475,19 +449,19 @@ def serve_scripts(file):
 @app.route('/bust/gps/<gp>/practice')
 def bust_practice(gp):
     print("Busting memoized functions for: /gps/<gp>/practice")
-    cache.delete_memoized(get_lap_data_by_driver_by_compound)
+    cache.delete_memoized(get_lap_data_by_compound)
     return flask.redirect(flask.request.url_root + f"gps/{gp}/practice")
 
 @app.route('/bust/gps/<gp>/qualifying')
 def bust_qualifying(gp):
     print("Busting memoized functions for: /gps/<gp>/qualifying")
-    cache.delete_memoized(get_lap_data_by_driver_by_compound)
+    cache.delete_memoized(get_lap_data_by_compound)
     return flask.redirect(flask.request.url_root + f"gps/{gp}/qualifying")
 
 @app.route('/bust/gps/<gp>/race')
 def bust_race(gp):
     print("Busting memoized functions for: /gps/<gp>/race")
-    cache.delete_memoized(get_lap_data_by_driver_by_compound)
+    cache.delete_memoized(get_lap_data_by_compound)
     return flask.redirect(flask.request.url_root + f"gps/{gp}/race")
 
 @app.route('/bust/gps/<gp>/results')
@@ -501,7 +475,7 @@ def bust_results(gp):
 @app.route('/bust/gps/<gp>/drivers/<driver1>/<year1>/<session1>/compare/<driver2>/<year2>/<session2>')
 def bust_driver(gp, driver1, year1, session1, driver2, year2, session2):
     print("Busting memoized function: /gps/<gp>/drivers/<driver1>/<year1>/<session1>/compare/<driver2>/<year2>/<session2>")
-    cache.delete_memoized(get_lap_data_by_driver_by_compound)
+    cache.delete_memoized(get_lap_data_by_compound)
     cache.delete_memoized(get_driver_stint_data)
     cache.delete_memoized(get_drivers)
     cache.delete_memoized(get_driver_qualifying_results)
@@ -509,4 +483,4 @@ def bust_driver(gp, driver1, year1, session1, driver2, year2, session2):
     return flask.redirect(flask.request.url_root + f"gps/{gp}/drivers/{driver1}/{year1}/{session1}/compare/{driver2}/{year2}/{session2}")
 
 if __name__ == "__main__":
-    app.run()
+    app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))

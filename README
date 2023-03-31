@@ -1,0 +1,8 @@
+# Deploy New Version
+```
+gcloud run deploy f1 --source . \
+    --region=us-east1 \
+    --execution-environment gen2 \
+    --allow-unauthenticated \
+    --service-account fs-identity
+```

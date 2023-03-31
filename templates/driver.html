@@ -34,7 +34,7 @@
         {% if compound == 'SOFT' %}#f8d7da{% elif compound == 'MEDIUM' %}#fff3cd{% elif compound == 'INTERMEDIATE' %}#d1e7dd{% elif compound == 'WET' %}#cfe2ff{% else %}#e2e3e5{% endif %} 
         {%- endmacro %}
         {% if data.upcoming_gp.weather %}
-            <a class="weatherwidget-io" href="https://forecast7.com/en{{data.upcoming_gp.weather}}" data-label_1="{{data.upcoming_gp.city}}" data-label_2="Upcoming Grand Prix" data-theme="original"></a>
+            <a class="weatherwidget-io" href="https://forecast7.com/en{{data.upcoming_gp.weather}}" data-label_1="{{data.upcoming_gp.name}}" data-label_2="On {{data.upcoming_gp.date}}" data-theme="original"></a>
         {% endif %}
         <div class="container-fluid">
             <nav class="navbar">
@@ -43,12 +43,6 @@
                         <img src="/images/logo.avif" width="175" height="125">
                     </a>
                     <div class="hstack gap-3 d-flex">
-                        <a class="btn btn-lg btn-outline-dark" type="button" href="https://www.formula1.com/en/results.html/{{data.years[0]}}/drivers.html">
-                            Drivers Standings
-                        </a>
-                        <a class="btn btn-lg btn-outline-dark" type="button" href="https://www.formula1.com/en/results.html/{{data.years[0]}}/team.html">
-                            Constructors Standings
-                        </a>
                         <div class="btn-group">
                             <button class="btn btn-lg btn-outline-dark dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                               {{data.current_gp}}
