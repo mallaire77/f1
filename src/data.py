@@ -117,7 +117,10 @@ def get_gp(gp: str, inner_year = year):
         return _convert_gp(next((inner_gp for _, inner_gp in f1.get_event_schedule(inner_year).iloc[1:].iterrows() if inner_gp['EventName'] == gp)))
     
 def get_previous_gp(gp: str, inner_year = year):
-    return get_previous_gps(gp, inner_year)[-1]
+    try:
+        return get_previous_gps(gp, inner_year)[-1]
+    except Exception:
+        return None
 
 def get_previous_gps(gp: str, inner_year = year):
     if (inner_year == year):

@@ -55,42 +55,38 @@ def _format_lap_time(milliseconds):
     milliseconds = milliseconds % 1000
     return f"{minutes}:{seconds:02d}.{milliseconds:03d}"
 
-# TODO: Fix bug for first race of the season
-def _build_driver_table_figure(data: AllData, sessions, drivers, compounds, pick_quicklaps):
+def _build_driver_table_figure(data: AllData, sessions, drivers, compounds, pick_quicklaps, include_prediction, include_laps):
     if (not drivers):
         return dash.html.Div()
     else:
-        should_load_prediction = data.f1_fantasy_data != None and data.f1_fantasy_data.has_any_results
+        valid_finish = ['Finished', '+1 Lap', '+2 Laps']
+
+        previous_sessions_data = data.previous_sessions_data.to_df()
+        aggregate_data = data.practice_session_data.aggregate_laps(sessions, drivers, compounds, pick_quicklaps)
+        gridrival_data = data.gridrival_data.to_df()
+        f1_fantasy_data = data.f1_fantasy_data.to_df() if data.f1_fantasy_data != None else None
+        
+        should_load_prediction = include_prediction and f1_fantasy_data != None and f1_fantasy_data.has_any_results
+        should_load_laps = include_laps
+        has_previous_sessions = not previous_sessions_data.empty
 
         columns = ['Driver', 'Salary', 'Avg. Salary', 'Avg. Points', 'Avg. Points (4)', 'DNF Streak', 'No DNF Streak', 'Prediction', 'Value Delta to Avg. Points', 'Value Delta to Prediction'] if should_load_prediction else ['Driver', 'Salary', 'Avg. Salary', 'Avg. Points', 'Avg. Points (4)', 'DNF Streak', 'No DNF Streak', 'Value Delta to Avg. Points']
-        additional_columns = ['Fastest Time', 'Avg. Time', '# Laps', 'Compound']
-        all_columns = columns + additional_columns
         df = pd.DataFrame(columns=columns)
-
-        valid_finish = ['Finished', '+1 Lap', '+2 Laps']
-        previous_gp = get_previous_gp(data.gp_name)
-        previous_sessions_data = data.previous_sessions_data.to_df()
-        gridrival_data = data.gridrival_data.to_df()
-        
-        aggregate_data = data.practice_session_data.aggregate_laps(sessions, drivers, compounds, pick_quicklaps)
 
         for driver in gridrival_data['Driver'].unique():
             driver_gridrival_data = gridrival_data[gridrival_data['Driver'] == driver]
-            driver_value = driver_gridrival_data[driver_gridrival_data['Gp'] == previous_gp['EventName']]['Salary'].iloc[0]
-            # driver_value_delta = driver_value - driver_salaries_baseline[driver_position - 1]
 
-            driver_average_points = 0
+            driver_salary = 0
             driver_dnf_streak = 0
             driver_no_dnf_streak = 0
-            # driver_std_dev_qualifying_pos = 0
-            # driver_std_dev_finish_pos = 0
-            # driver_last_four_race_average = 0
-            # driver_last_eight_race_average = 0
-
-            if (not previous_sessions_data.empty):
+            driver_average_salary = 0
+            driver_average_points = 0
+            driver_average_poinst_4 = 0
+            if (has_previous_sessions):
                 driver_all_gp_results = previous_sessions_data[previous_sessions_data['Abbreviation'] == driver]
                 driver_finished_gp_results = driver_all_gp_results.loc[driver_all_gp_results['Status'].isin(valid_finish)]
                 driver_gridrival_results = driver_gridrival_data[driver_gridrival_data['Gp'].isin(driver_finished_gp_results['Gp'].unique())]
+                driver_salary = driver_gridrival_data[driver_gridrival_data['Gp'] == driver_all_gp_results['Gp'].iloc[-1]]['Salary'].iloc[0]
                 driver_average_salary = round(np.mean(driver_gridrival_results['Salary']),1)
                 driver_average_points = round(np.mean(driver_gridrival_results['Points']),1)
                 driver_average_poinst_4 = round(np.mean(driver_gridrival_results.tail(min(len(driver_gridrival_results), 4))['Points'].values),1)
@@ -116,7 +112,7 @@ def _build_driver_table_figure(data: AllData, sessions, drivers, compounds, pick
 
             row = {
                 'Driver': driver,
-                'Salary': driver_value,
+                'Salary': driver_salary,
                 'Avg. Salary': driver_average_salary,
                 'Avg. Points': driver_average_points,
                 'Avg. Points (4)': driver_average_poinst_4,
@@ -126,7 +122,7 @@ def _build_driver_table_figure(data: AllData, sessions, drivers, compounds, pick
             }
             df.loc[len(df)] = row # type: ignore
 
-        if (not df.empty):
+        if (has_previous_sessions and not df.empty):
             driver_points_ranking = df.sort_values(by='Avg. Points', ascending=False)
             driver_points_ranking['AvgPointsRank'] = range(1, len(driver_points_ranking) + 1)
             df['Value Delta to Avg. Points'] = df.apply(
@@ -141,14 +137,6 @@ def _build_driver_table_figure(data: AllData, sessions, drivers, compounds, pick
                 lambda row: row['Salary'] - driver_salaries_baseline[driver_prediction_ranking[driver_prediction_ranking['Driver'] == row['Driver']]['PredictedPointsRank'].iloc[0] - 1],
                 axis=1
             ).round(1)
-
-        aggregate_data['# Laps'] = aggregate_data['NumLaps']
-        aggregate_data['Fastest Time'] = aggregate_data['BestTimeMilliseconds'].apply(_format_lap_time)
-        aggregate_data['Avg. Time'] = aggregate_data['AvgTimeMilliseconds'].apply(_format_lap_time)
-
-        merged_df = pd.merge(aggregate_data, df, on='Driver')
-        merged_df = merged_df[merged_df['Driver'].isin(drivers)]
-        merged_df = merged_df[all_columns]
 
         style_data_conditional = [
             {'if': {'filter_query': '{No DNF Streak} >= 12', 'column_id': 'No DNF Streak'},
@@ -167,18 +155,43 @@ def _build_driver_table_figure(data: AllData, sessions, drivers, compounds, pick
             'backgroundColor': '#809dd1', 'color': 'black'},
         ]
 
-        return dash.dash_table.DataTable(
-            id='driver-table',
-            columns=[
-                {"name": i, "id": i} for i in all_columns
-            ],
-            data= merged_df.to_dict('records'),
-            fixed_rows={'headers': True},
-            sort_action="native",
-            sort_mode="single",
-            style_table={'height': '300px', 'overflowY': 'auto', 'overflowX': 'auto', 'width': '100%'},
-            style_data_conditional=style_data_conditional,
-        )
+        if (should_load_laps):
+            additional_columns = ['Fastest Time', 'Avg. Time', '# Laps', 'Compound']
+            all_columns = columns + additional_columns
+
+            aggregate_data['# Laps'] = aggregate_data['NumLaps']
+            aggregate_data['Fastest Time'] = aggregate_data['BestTimeMilliseconds'].apply(_format_lap_time)
+            aggregate_data['Avg. Time'] = aggregate_data['AvgTimeMilliseconds'].apply(_format_lap_time)
+
+            merged_df = pd.merge(aggregate_data, df, on='Driver')
+            merged_df = merged_df[merged_df['Driver'].isin(drivers)]
+            merged_df = merged_df[all_columns]
+
+            return dash.dash_table.DataTable(
+                id='driver-table',
+                columns=[
+                    {"name": i, "id": i} for i in all_columns
+                ],
+                data= merged_df.to_dict('records'),
+                fixed_rows={'headers': True},
+                sort_action="native",
+                sort_mode="single",
+                style_table={'height': '300px', 'overflowY': 'auto', 'overflowX': 'auto', 'width': '100%'},
+                style_data_conditional=style_data_conditional,
+            )
+        else:
+            return dash.dash_table.DataTable(
+                id='driver-table',
+                columns=[
+                    {"name": i, "id": i} for i in columns
+                ],
+                data= df.to_dict('records'),
+                fixed_rows={'headers': True},
+                sort_action="native",
+                sort_mode="single",
+                style_table={'height': '300px', 'overflowY': 'auto', 'overflowX': 'auto', 'width': '100%'},
+                style_data_conditional=style_data_conditional,
+            )
 
 def _build_driver_lap_distribution_figure(data: AllData, sessions, drivers, compounds, pick_quicklaps):
     if (not sessions or not drivers or not compounds):
@@ -384,10 +397,12 @@ def update_session_and_driver_and_compound_dropdown(selected_gp):
     dash.Input('driver-selection', 'value'),
     dash.Input('compound-selection', 'value'),
     dash.Input('pick-quicklaps', 'value'),
+    dash.Input('include-predictions', 'value'),
+    dash.Input('include-laps', 'value'),
 )
-def update_all(selected_gp, selected_sessions, selected_drivers, selected_compounds, pick_quicklaps):
+def update_all(selected_gp, selected_sessions, selected_drivers, selected_compounds, pick_quicklaps, include_predictions, include_laps):
     data = get_data(year, selected_gp)
-    return _convert_strategy_to_html(data.strategy_data.winning_strategy), _convert_strategy_to_html(data.strategy_data.popular_strategy), _build_driver_table_figure(data, selected_sessions, selected_drivers, selected_compounds, pick_quicklaps), _build_driver_lap_distribution_figure(data, selected_sessions, selected_drivers, selected_compounds, pick_quicklaps), _build_driver_lap_progression_figure(data, selected_sessions, selected_drivers, selected_compounds, pick_quicklaps)
+    return _convert_strategy_to_html(data.strategy_data.winning_strategy), _convert_strategy_to_html(data.strategy_data.popular_strategy), _build_driver_table_figure(data, selected_sessions, selected_drivers, selected_compounds, pick_quicklaps, include_predictions, include_laps), _build_driver_lap_distribution_figure(data, selected_sessions, selected_drivers, selected_compounds, pick_quicklaps), _build_driver_lap_progression_figure(data, selected_sessions, selected_drivers, selected_compounds, pick_quicklaps)
 
 gp = get_upcoming_gp()
 app.layout = dash.html.Div(children=[
@@ -427,6 +442,22 @@ app.layout = dash.html.Div(children=[
                     id='pick-quicklaps',
                     options=[
                         {'label': '  Only pick quick laps?  ', 'value': True},
+                    ],
+                    value=[True]
+                ),
+                dash.html.Div([], className='m-1'),
+                dcc.Checklist(
+                    id='include-predictions',
+                    options=[
+                        {'label': '  Include predictions in driver table?  ', 'value': True},
+                    ],
+                    value=[True]
+                ),
+                dash.html.Div([], className='m-1'),
+                dcc.Checklist(
+                    id='include-laps',
+                    options=[
+                        {'label': '  Include lap data in driver table?  ', 'value': True},
                     ],
                     value=[True]
                 ),
@@ -474,7 +505,7 @@ app.layout = dash.html.Div(children=[
             #     dcc.Graph(id='driver-salary-progression')
             # ]),    
         ],
-        style={'width': '90vw', 'margin': '0 auto'}
+        style={'width': '88vw', 'margin': '0 auto'}
     ),
 ])
 
